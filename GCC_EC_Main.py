@@ -121,7 +121,7 @@ def merge_AQdata(date, selected_AQI, selected_AGC):
 #    try:
     demo_data = gpd.read_file('./AQ data/demo data helsinki pack_columns.gpkg')
     date_yymmdd = str(date.value).split('-')
-    raster_path = f'./AQ data/{"".join(date_yymmdd)}_{selected_AQI}_avg.tif'
+    raster_path = f'./AQ data/AQ_rasterdata/{"".join(date_yymmdd)}_{selected_AQI}_avg.tif'
 
     dataarray = xrr.open_rasterio(raster_path)
     gdf = vectorize(dataarray.astype("float32"))
