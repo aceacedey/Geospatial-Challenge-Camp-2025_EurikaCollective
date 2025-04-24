@@ -52,7 +52,7 @@ def show_vector_map(date,selected_AQI,selected_AGC):
     date_yymmdd = str(date.value).split('-')
     processed_data_path = f'./AQ data/Processed_data/{"".join(date_yymmdd)}_{selected_AQI}_{selected_AGC}_Helsinki.gpkg'
 
-    demo = gpd.read_file(processed_data_path)
+    demo = gpd.read_file(processed_data_path).dropna()
     
     minx, miny, maxx, maxy = demo.total_bounds
     center = [(miny + maxy) / 2, (minx + maxx) / 2]
@@ -119,6 +119,7 @@ def show_raster_map(img_path):
 def merge_AQdata(date, selected_AQI, selected_AGC):
     """Merge air quality data with health data"""
 #    try:
+    print("Merging AQ data has been started ---->")
     demo_data = gpd.read_file('./AQ data/demo data helsinki pack_columns.gpkg')
     date_yymmdd = str(date.value).split('-')
     raster_path = f'./AQ data/AQ_rasterdata/{"".join(date_yymmdd)}_{selected_AQI}_avg.tif'
@@ -156,17 +157,17 @@ def merge_AQdata(date, selected_AQI, selected_AGC):
 
     
 
-    demo_aqi_GB_raster = make_geocube(
-        vector_data=processed_df,
-        measurements=["OBJECTID", 'population'],
-        resolution=(-0.0025, 0.0025),
-        output_crs="epsg:4326",
-    )
-    demo_aqi_GB_raster.rio.to_raster(
-        "./AQ data/temp/demo_aqi_GB_gdf_cog.tif",
-        driver="COG",
-        compress="LZW"
-    )
+##    demo_aqi_GB_raster = make_geocube(
+##        vector_data=processed_df,
+##        measurements=["OBJECTID", 'population'],
+##        resolution=(-0.0025, 0.0025),
+##        output_crs="epsg:4326",
+##    )
+##    demo_aqi_GB_raster.rio.to_raster(
+##        "./AQ data/temp/demo_aqi_GB_gdf_cog.tif",
+##        driver="COG",
+##        compress="LZW"
+##    )
 
 #    except Exception as e:
 #        print(f"Data processing failed: {str(e)}")
@@ -297,7 +298,8 @@ def Page():
                 if status.value == "succeeded":
                     solara.Info(f"✅ Analysis succeeded! Click Show Map to view results for {age_group.value} against {pollutant.value}!")
                 elif status.value == "failed":
-                    solara.Markdown("❌ Analysis failed. Please check your inputs and try again.")
+                    #solara.Markdown("❌ Analysis failed. Please check your inputs and try again.")
+                    solara.Markdown(f"**❌ Analysis not ready for {age_group.value} against {pollutant.value} on {str(date.value)}.**")
                     #print(success)
                 #status.set("idle")
 #                if did_run.value:
@@ -347,20 +349,39 @@ def Page():
 
         #solara.Info("Helsinki, Finland")
         show_map = solara.use_reactive(False)
+        error = solara.use_reactive("")
         solara.Button(
             label="Show Map", 
             on_click=lambda: show_map.set(True),
             color="primary"
         )
 
-        if show_map.value:
+        if show_map.value and (status.value == "idle" or status.value == "succeeded" or status.value == "failed")  : # 
             try:
                 show_vector_map(date, pollutant.value, age_group.value)
                 solara.Info(f"✅ Visualization successful for {age_group.value} against {pollutant.value} on {str(date.value)}.")
+                
             except Exception as e:
+                show_map.set(False)
                 print(f"Vector map failed due to invalid parameters: {str(e)}")
+
                 solara.Markdown(f"**❌ Analysis not ready for {age_group.value} against {pollutant.value} on {str(date.value)}.**")
-                show_raster_map("./AQ data/filtered_data.tif")
+                error.set(
+                f"**❌ Analysis not ready for {age_group.value} against "
+                f"{pollutant.value} on {date.value}. Please click RUN ANALYSIS first!**\n\n"
+                f"> {str(e)}"
+                )
+#        else:
+#            solara.Markdown(f"**Analysis being ready for {age_group.value} against {pollutant.value} on {str(date.value)}.**")
+#            finally:
+#                solara.Markdown(error.value)
+            #show_raster_map("./AQ data/filtered_data.tif")
+                #show_raster_map("./AQ data/20250417_PM10_avg.tif")
+                #show_map.set(False)
+        
+        if error.value: #and status.value != "running"
+            solara.Markdown(error.value)
+#                error = solara.use_reactive("")
 
     return main
 
