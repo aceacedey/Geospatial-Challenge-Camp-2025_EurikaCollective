@@ -19,6 +19,7 @@ import rioxarray as xrr
 import xarray as xr
 import io
 import os
+import branca
 #from solara.lab import async_wrap_in_thread
 
 def _load_csv(info, df_reactive):
@@ -53,12 +54,17 @@ def show_vector_map(date,selected_AQI,selected_AGC):
     processed_data_path = f'./AQ data/Processed_data/{"".join(date_yymmdd)}_{selected_AQI}_{selected_AGC}_Helsinki.gpkg'
 
     demo = gpd.read_file(processed_data_path).dropna()
+
+    demo = demo[demo.population > 0].copy()
     
     minx, miny, maxx, maxy = demo.total_bounds
     center = [(miny + maxy) / 2, (minx + maxx) / 2]
 
     vmin = demo["population"].min()
     vmax = demo["population"].max()
+    
+    
+
 
     def style_function(feature):
         base = feature["properties"]["bins"]
@@ -74,16 +80,47 @@ def show_vector_map(date,selected_AQI,selected_AGC):
             "stroke": False,
         }
 
-    m = folium.Map(location=center, zoom_start=11,tiles= "CartoDB Positron",  attr='&copy; <a href="https://carto.com/attributions">CARTO</a> ' )
-    folium.GeoJson(
-        demo.__geo_interface__,
-        style_function=style_function,
-        tooltip=folium.GeoJsonTooltip(
-            fields=["OBJECTID", "population"],
-            aliases=["ID", "Population"],
-            localize=True
+    m = folium.Map(location=center, zoom_start=11,tiles= "CartoDB Positron", attr='&copy; <a href="https://carto.com/attributions">CARTO</a> ' )
+##    folium.GeoJson(
+##        demo.__geo_interface__,
+##        style_function=style_function,
+##        tooltip=folium.GeoJsonTooltip(
+##            fields=["OBJECTID", "population"],
+##            aliases=["ID", "Population"],
+##            localize=True
+##        )
+##    ).add_to(m)
+#    lgd_txt = '<span style="color: {col};">{txt}</span>'
+    
+    # 6. For each colour, make a FeatureGroup containing only that subset
+    for colour in ["blue", "orange", "red"]:
+        subgroup = demo[demo["bins"] == colour]
+        fg = folium.FeatureGroup(
+            name=f"{colour.capitalize()} Risk Zones",
+            show=False  # off by default; click the legend to turn on
         )
-    ).add_to(m)
+        if not subgroup.empty:
+            folium.GeoJson(
+                subgroup.__geo_interface__,
+                style_function=style_function,
+                tooltip=folium.GeoJsonTooltip(
+                    fields=["OBJECTID", "population"],
+                    aliases=["ID", "Population"],
+                    localize=True,
+                ),
+            ).add_to(fg)
+            fg.add_to(m)
+
+#    colormap = branca.colormap.LinearColormap(
+#        vmin= 0,#.quantile(0.0),#statesmerge["change"]
+#        vmax= vmax,#.quantile(1),
+#        colors=["blue"],
+#        caption="Population with an agegroup",
+#    )
+#    colormap.add_to(m)
+    folium.raster_layers.TileLayer(tiles='openstreetmap', name='Open Street Map').add_to(m)
+    folium.map.LayerControl('topleft', collapsed= False).add_to(m)
+
     display(m)
 
 
